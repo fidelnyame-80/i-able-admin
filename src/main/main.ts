@@ -1,0 +1,238 @@
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  dialog,
+} from 'electron'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { initializeDatabase, closeDatabase } from '../lib/db.js'
+import * as adminService from '../lib/admin-service.js'
+import * as appointmentService from '../lib/appointment-service.js'
+import { AdminSession, SignupRequest, LoginRequest } from '../lib/types.js'
+import dotenv from 'dotenv'
+
+dotenv.config()
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const isDev = !app.isPackaged
+
+let mainWindow: BrowserWindow | null = null
+let currentSession: AdminSession | null = null
+
+function createWindow() {
+  const iconPath = path.join(__dirname, '../../src/images/i-able-logo.ico')
+  
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 700,
+    icon: iconPath,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  })
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.webContents.openDevTools()
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'))
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+}
+
+function createMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        isDev
+          ? { label: 'Exit', accelerator: 'CmdOrCtrl+Q', role: 'quit' }
+          : { label: 'Exit', accelerator: 'CmdOrCtrl+Q', role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+      ],
+    },
+    ...(isDev
+      ? [
+          {
+            label: 'View',
+            submenu: [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { role: 'toggleDevTools' },
+            ],
+          } as Electron.MenuItemConstructorOptions,
+        ]
+      : []),
+  ]
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+// IPC Handlers
+ipcMain.handle('admin:signup', async (_event, request: SignupRequest) => {
+  try {
+    const adminCount = await adminService.getAdminCount()
+    if (adminCount >= 3) {
+      throw new Error('Maximum admin accounts already created')
+    }
+    const admin = await adminService.adminSignup(request)
+    return { success: true, data: admin }
+  } catch (error: any) {
+    console.error('Signup error:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('admin:login', async (_event, request: LoginRequest) => {
+  try {
+    const session = await adminService.adminLogin(request)
+    currentSession = session
+    return { success: true, data: session }
+  } catch (error: any) {
+    console.error('Login error:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('admin:logout', () => {
+  currentSession = null
+  return { success: true }
+})
+
+ipcMain.handle('admin:getSession', () => {
+  return { success: true, data: currentSession }
+})
+
+ipcMain.handle('admin:count', async () => {
+  try {
+    const count = await adminService.getAdminCount()
+    return { success: true, data: count }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('admin:getAll', async () => {
+  try {
+    if (!currentSession) {
+      throw new Error('Not authenticated')
+    }
+    const admins = await adminService.getAllAdmins()
+    return { success: true, data: admins }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('appointments:getAll', async () => {
+  try {
+    if (!currentSession) {
+      throw new Error('Not authenticated')
+    }
+    const appointments = await appointmentService.getAppointments()
+    return { success: true, data: appointments }
+  } catch (error: any) {
+    console.error('Get appointments error:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('appointments:search', async (_event, query: string) => {
+  try {
+    if (!currentSession) {
+      throw new Error('Not authenticated')
+    }
+    const appointments = await appointmentService.searchAppointments(query)
+    return { success: true, data: appointments }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle(
+  'appointments:updateStatus',
+  async (_event, id: number, status: string, internalNotes?: string) => {
+    try {
+      if (!currentSession) {
+        throw new Error('Not authenticated')
+      }
+      // Only director and master can update status
+      if (
+        currentSession.role !== 'director' &&
+        currentSession.role !== 'master'
+      ) {
+        throw new Error('Permission denied')
+      }
+      const appointment =
+        await appointmentService.updateAppointmentStatus(
+          id,
+          status,
+          internalNotes,
+        )
+      return { success: true, data: appointment }
+    } catch (error: any) {
+      console.error('Update status error:', error.message)
+      return { success: false, error: error.message }
+    }
+  },
+)
+
+ipcMain.handle('appointments:getById', async (_event, id: number) => {
+  try {
+    if (!currentSession) {
+      throw new Error('Not authenticated')
+    }
+    const appointment = await appointmentService.getAppointmentById(id)
+    return { success: true, data: appointment }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+app.on('ready', async () => {
+  try {
+    initializeDatabase()
+    createWindow()
+    createMenu()
+  } catch (error) {
+    console.error('Failed to initialize app:', error)
+    dialog.showErrorBox(
+      'Startup Error',
+      'Failed to initialize the application. Please check your database connection.',
+    )
+    app.quit()
+  }
+})
+
+app.on('window-all-closed', () => {
+  closeDatabase()
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
+})
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow()
+  }
+})
