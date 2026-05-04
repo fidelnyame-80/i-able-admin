@@ -4,6 +4,7 @@ import type {
   LoginRequest,
   AdminSession,
   AppointmentRequest,
+  DatabaseStatus,
 } from './lib/types.js'
 
 interface IpcResponse<T> {
@@ -13,6 +14,20 @@ interface IpcResponse<T> {
 }
 
 const electronAPI = {
+  // Configuration APIs
+  getDatabaseStatus: () =>
+    ipcRenderer.invoke('config:getDatabaseStatus') as Promise<
+      IpcResponse<DatabaseStatus>
+    >,
+  saveDatabaseConfig: (databaseUrl: string) =>
+    ipcRenderer.invoke('config:saveDatabase', databaseUrl) as Promise<
+      IpcResponse<DatabaseStatus>
+    >,
+  clearDatabaseConfig: () =>
+    ipcRenderer.invoke('config:clearDatabase') as Promise<
+      IpcResponse<DatabaseStatus>
+    >,
+
   // Admin APIs
   adminSignup: (request: SignupRequest) =>
     ipcRenderer.invoke('admin:signup', request) as Promise<

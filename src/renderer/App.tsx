@@ -1,28 +1,49 @@
 import { useState, useEffect } from 'react'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { AuthPage } from './components/AuthPage'
+import { DatabaseSetupPage } from './components/DatabaseSetupPage'
 import { Dashboard } from './components/Dashboard'
-import { AdminSession } from '../lib/types'
+import { AdminSession, DatabaseStatus } from '../lib/types'
 
 function AppContent() {
   const { theme } = useTheme()
+  const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus | null>(null)
+  const [showDatabaseSetup, setShowDatabaseSetup] = useState(false)
   const [session, setSession] = useState<AdminSession | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
 
   useEffect(() => {
-    checkSession()
+    initializeApp()
   }, [])
 
-  const checkSession = async () => {
+  const initializeApp = async () => {
     try {
-      const response = await window.electronAPI.getSession()
-      if (response.success && response.data) {
-        setSession(response.data)
+      const databaseResponse = await window.electronAPI.getDatabaseStatus()
+      if (databaseResponse.success && databaseResponse.data) {
+        setDatabaseStatus(databaseResponse.data)
+
+        if (databaseResponse.data.isReady) {
+          const sessionResponse = await window.electronAPI.getSession()
+          if (sessionResponse.success && sessionResponse.data) {
+            setSession(sessionResponse.data)
+          }
+        } else {
+          setSession(null)
+        }
       }
     } catch (error) {
-      console.error('Failed to check session:', error)
+      console.error('Failed to initialize app:', error)
     } finally {
       setIsInitializing(false)
+    }
+  }
+
+  const handleDatabaseStatus = (status: DatabaseStatus) => {
+    setDatabaseStatus(status)
+
+    if (status.isReady) {
+      setShowDatabaseSetup(false)
+      void initializeApp()
     }
   }
 
@@ -66,6 +87,18 @@ function AppContent() {
     )
   }
 
+  const needsDatabaseSetup = !databaseStatus?.isReady
+  if (needsDatabaseSetup || showDatabaseSetup) {
+    return (
+      <DatabaseSetupPage
+        status={databaseStatus}
+        canCancel={!needsDatabaseSetup}
+        onCancel={() => setShowDatabaseSetup(false)}
+        onConfigured={handleDatabaseStatus}
+      />
+    )
+  }
+
   return (
     <div
       className={`${
@@ -76,7 +109,10 @@ function AppContent() {
       {session ? (
         <Dashboard session={session} onLogout={handleLogout} />
       ) : (
-        <AuthPage onLoginSuccess={handleLoginSuccess} />
+        <AuthPage
+          onLoginSuccess={handleLoginSuccess}
+          onOpenDatabaseSetup={() => setShowDatabaseSetup(true)}
+        />
       )}
     </div>
   )

@@ -7,10 +7,20 @@ import {
 } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { initializeDatabase, closeDatabase } from '../lib/db.js'
+import {
+  closeDatabase,
+  ensureDatabaseSetup,
+  getDatabaseStatus,
+  initializeDatabase,
+  testDatabaseConnection,
+} from '../lib/db.js'
 import * as adminService from '../lib/admin-service.js'
 import * as appointmentService from '../lib/appointment-service.js'
 import { AdminSession, SignupRequest, LoginRequest } from '../lib/types.js'
+import {
+  clearStoredDatabaseConfig,
+  saveDatabaseConfig,
+} from '../lib/app-config.js'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -21,15 +31,19 @@ const isDev = !app.isPackaged
 let mainWindow: BrowserWindow | null = null
 let currentSession: AdminSession | null = null
 
+function getAppIconPath() {
+  return isDev
+    ? path.join(__dirname, '../../resources/i-able-logo.ico')
+    : path.join(process.resourcesPath, 'icons/i-able-logo.ico')
+}
+
 function createWindow() {
-  const iconPath = path.join(__dirname, '../../src/images/i-able-logo.ico')
-  
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1200,
     minHeight: 700,
-    icon: iconPath,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
       nodeIntegration: false,
@@ -42,7 +56,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
   mainWindow.on('closed', () => {
@@ -88,9 +102,48 @@ function createMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+ipcMain.handle('config:getDatabaseStatus', async () => {
+  try {
+    const status = await getDatabaseStatus()
+    return { success: true, data: status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('config:saveDatabase', async (_event, databaseUrl: string) => {
+  try {
+    await testDatabaseConnection(databaseUrl)
+    saveDatabaseConfig(databaseUrl)
+    await ensureDatabaseSetup(databaseUrl)
+
+    currentSession = null
+
+    const status = await getDatabaseStatus()
+    return { success: true, data: status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('config:clearDatabase', async () => {
+  try {
+    clearStoredDatabaseConfig()
+    currentSession = null
+    await closeDatabase()
+    await ensureDatabaseSetup()
+
+    const status = await getDatabaseStatus()
+    return { success: true, data: status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
 // IPC Handlers
 ipcMain.handle('admin:signup', async (_event, request: SignupRequest) => {
   try {
+    await initializeDatabase()
     const adminCount = await adminService.getAdminCount()
     if (adminCount >= 3) {
       throw new Error('Maximum admin accounts already created')
@@ -105,6 +158,7 @@ ipcMain.handle('admin:signup', async (_event, request: SignupRequest) => {
 
 ipcMain.handle('admin:login', async (_event, request: LoginRequest) => {
   try {
+    await initializeDatabase()
     const session = await adminService.adminLogin(request)
     currentSession = session
     return { success: true, data: session }
@@ -125,6 +179,7 @@ ipcMain.handle('admin:getSession', () => {
 
 ipcMain.handle('admin:count', async () => {
   try {
+    await initializeDatabase()
     const count = await adminService.getAdminCount()
     return { success: true, data: count }
   } catch (error: any) {
@@ -134,6 +189,7 @@ ipcMain.handle('admin:count', async () => {
 
 ipcMain.handle('admin:getAll', async () => {
   try {
+    await initializeDatabase()
     if (!currentSession) {
       throw new Error('Not authenticated')
     }
@@ -146,6 +202,7 @@ ipcMain.handle('admin:getAll', async () => {
 
 ipcMain.handle('appointments:getAll', async () => {
   try {
+    await initializeDatabase()
     if (!currentSession) {
       throw new Error('Not authenticated')
     }
@@ -159,6 +216,7 @@ ipcMain.handle('appointments:getAll', async () => {
 
 ipcMain.handle('appointments:search', async (_event, query: string) => {
   try {
+    await initializeDatabase()
     if (!currentSession) {
       throw new Error('Not authenticated')
     }
@@ -173,6 +231,7 @@ ipcMain.handle(
   'appointments:updateStatus',
   async (_event, id: number, status: string, internalNotes?: string) => {
     try {
+      await initializeDatabase()
       if (!currentSession) {
         throw new Error('Not authenticated')
       }
@@ -199,6 +258,7 @@ ipcMain.handle(
 
 ipcMain.handle('appointments:getById', async (_event, id: number) => {
   try {
+    await initializeDatabase()
     if (!currentSession) {
       throw new Error('Not authenticated')
     }
@@ -211,14 +271,19 @@ ipcMain.handle('appointments:getById', async (_event, id: number) => {
 
 app.on('ready', async () => {
   try {
-    initializeDatabase()
+    try {
+      await ensureDatabaseSetup()
+    } catch (error: any) {
+      console.warn('Database not ready during startup:', error.message)
+    }
+
     createWindow()
     createMenu()
   } catch (error) {
     console.error('Failed to initialize app:', error)
     dialog.showErrorBox(
       'Startup Error',
-      'Failed to initialize the application. Please check your database connection.',
+      'Failed to initialize the application window.',
     )
     app.quit()
   }

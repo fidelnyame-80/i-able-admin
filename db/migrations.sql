@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- 2. Ensure appointment_requests has status columns
 -- If the table already has these columns, the ALTER will be skipped
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF to_regclass('public.appointment_requests') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'appointment_requests' AND column_name = 'status') THEN
     ALTER TABLE appointment_requests
     ADD COLUMN status TEXT NOT NULL DEFAULT 'new';
@@ -22,7 +23,8 @@ DO $$ BEGIN
 END $$;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF to_regclass('public.appointment_requests') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'appointment_requests' AND column_name = 'internal_notes') THEN
     ALTER TABLE appointment_requests
     ADD COLUMN internal_notes TEXT;
@@ -30,7 +32,8 @@ DO $$ BEGIN
 END $$;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF to_regclass('public.appointment_requests') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'appointment_requests' AND column_name = 'contacted_at') THEN
     ALTER TABLE appointment_requests
     ADD COLUMN contacted_at TIMESTAMPTZ;

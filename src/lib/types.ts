@@ -39,3 +39,28 @@ export interface LoginRequest {
   email: string
   password: string
 }
+
+export type DatabaseConfigSource =
+  | 'userConfig'
+  | 'bundledConfig'
+  | 'environment'
+  | 'none'
+
+export interface DatabaseSchemaStatus {
+  adminUsersTable: boolean
+  appointmentRequestsTable: boolean
+  appointmentStatusColumn: boolean
+  appointmentInternalNotesColumn: boolean
+  appointmentContactedAtColumn: boolean
+}
+
+export interface DatabaseStatus {
+  isConfigured: boolean
+  isConnected: boolean
+  isReady: boolean
+  source: DatabaseConfigSource
+  configPath: string | null
+  secureStorage: boolean
+  schema: DatabaseSchemaStatus
+  lastError: string | null
+}

@@ -2,14 +2,17 @@
   "name": "i-able-admin",
   "version": "1.0.0",
   "description": "i-Able Admin Desktop App - Appointment Management",
+  "author": "i-Able",
   "main": "dist/main/main.js",
   "type": "module",
   "scripts": {
     "dev": "node ./node_modules/concurrently/dist/bin/concurrently.js \"node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --watch\" \"node ./node_modules/vite/bin/vite.js\" \"node ./node_modules/wait-on/bin/wait-on dist/main/main.js http://localhost:5173 && node ./node_modules/electron/cli.js .\"",
     "build": "npm run type-check && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json && node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
-    "package": "npm run build && node ./node_modules/electron-builder/cli.js",
-    "lint": "node ./node_modules/eslint/bin/eslint.js src --ext .ts,.tsx",
+    "prepare:bundle": "node ./scripts/prepare-bundled-config.mjs",
+    "package": "npm run prepare:bundle && npm run build && node ./node_modules/electron-builder/cli.js --win nsis",
+    "package:win": "npm run prepare:bundle && npm run build && node ./node_modules/electron-builder/cli.js --win nsis",
+    "lint": "node ./node_modules/eslint/bin/eslint.js src",
     "type-check": "node ./node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
@@ -39,5 +42,56 @@
     "typescript": "^5.3.3",
     "vite": "^8.0.10",
     "wait-on": "^7.0.1"
+  },
+  "build": {
+    "appId": "com.iable.admin",
+    "productName": "i-Able Admin",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "db/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/default-config.json",
+        "to": "config/default-config.json"
+      },
+      {
+        "from": "resources/i-able-logo.ico",
+        "to": "icons/i-able-logo.ico"
+      },
+      {
+        "from": "src/images/i-able-logo.png",
+        "to": "icons/i-able-logo.png"
+      }
+    ],
+    "win": {
+      "icon": "resources/i-able-logo.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "resources/i-able-logo.ico",
+      "uninstallerIcon": "resources/i-able-logo.ico",
+      "installerHeaderIcon": "resources/i-able-logo.ico",
+      "shortcutName": "i-Able Admin",
+      "uninstallDisplayName": "i-Able Admin"
+    }
   }
 }

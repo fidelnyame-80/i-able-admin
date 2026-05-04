@@ -25,12 +25,14 @@ A professional Electron desktop application for managing i-Able appointment requ
 - Responsive sidebar and detail panel layout
 - Loading, empty, and error states
 - Smooth transitions and animations
+- First-run database setup for installed Windows builds
 
 ✅ **Security**
 - No direct database access from frontend
 - Secure Electron IPC with contextBridge
 - Password hashing (bcrypt)
-- Environment variable configuration
+- Saved local database configuration with Windows secure storage when available
+- Environment variable fallback for development
 - Parameterized SQL queries
 
 ## Prerequisites
@@ -47,7 +49,7 @@ A professional Electron desktop application for managing i-Able appointment requ
    npm install
    ```
 
-2. **Set up environment variables**
+2. **Set up environment variables for development**
    ```bash
    cp .env.example .env
    ```
@@ -63,7 +65,10 @@ A professional Electron desktop application for managing i-Able appointment requ
    - Select your project and database
    - Copy the connection string from "Connection String"
 
-3. **Run database migrations**
+   The packaged Windows app can also collect this connection string on first
+   launch, so end users do not need to edit a `.env` file.
+
+3. **Run database migrations manually (development only)**
    
    Execute the SQL file in your Neon database:
    - Go to Neon Console > SQL Editor
@@ -74,6 +79,9 @@ A professional Electron desktop application for managing i-Able appointment requ
    - Create the `admin_users` table
    - Add `status`, `internal_notes`, and `contacted_at` columns to `appointment_requests`
    - Create indexes for better performance
+
+   The installed Windows app will also run the safe setup automatically after a
+   successful database connection is saved.
 
 ## Running the App
 
@@ -101,7 +109,26 @@ Outputs compiled code to `dist/` directory.
 npm run package
 ```
 
-Creates an installer for Windows/Mac (requires electron-builder configuration).
+Creates a Windows NSIS installer in `release/`.
+
+When you package the app, the current `DATABASE_URL` from your `.env` file is
+also bundled into the installer automatically. That means the installed app can
+open on another PC without asking for the database URL again.
+
+Expected artifacts:
+- `release/i-Able Admin-Setup-<version>.exe`
+- `release/win-unpacked/`
+
+## First Launch (Installed App)
+
+On the first launch of the installed Windows app:
+1. If the installer was built with a `DATABASE_URL`, the app connects automatically
+2. If no bundled database URL exists, paste the Neon Postgres connection string into the setup screen
+3. The app verifies the connection and applies the safe schema setup
+4. Once the database is ready, the normal login/signup flow appears
+
+The installed app stores the connection string in the Electron user data folder
+and uses Windows secure storage when it is available.
 
 ## Admin Accounts
 
