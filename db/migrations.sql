@@ -42,8 +42,20 @@ END $$;
 
 -- 3. Create index for faster searches
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
-CREATE INDEX IF NOT EXISTS idx_appointment_requests_status ON appointment_requests(status);
-CREATE INDEX IF NOT EXISTS idx_appointment_requests_created_at ON appointment_requests(created_at DESC);
+
+DO $$ BEGIN
+  IF to_regclass('public.appointment_requests') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS idx_appointment_requests_status
+      ON appointment_requests(status);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.appointment_requests') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS idx_appointment_requests_created_at
+      ON appointment_requests(created_at DESC);
+  END IF;
+END $$;
 
 -- Verify tables exist and have correct structure
 -- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';

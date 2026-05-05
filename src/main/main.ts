@@ -6,7 +6,6 @@ import {
   dialog,
 } from 'electron'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import {
   closeDatabase,
   ensureDatabaseSetup,
@@ -25,7 +24,6 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
@@ -38,6 +36,10 @@ function getAppIconPath() {
 }
 
 function createWindow() {
+  const preloadPath = path.join(__dirname, '../preload.js')
+  console.log('[main] __dirname:', __dirname)
+  console.log('[main] preloadPath:', preloadPath)
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -45,7 +47,7 @@ function createWindow() {
     minHeight: 700,
     icon: getAppIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -270,16 +272,13 @@ ipcMain.handle('appointments:getById', async (_event, id: number) => {
   }
 })
 
-app.on('ready', async () => {
+app.on('ready', () => {
   try {
-    try {
-      await ensureDatabaseSetup()
-    } catch (error: any) {
-      console.warn('Database not ready during startup:', error.message)
-    }
-
     createWindow()
     createMenu()
+    void ensureDatabaseSetup().catch((error: any) => {
+      console.warn('Database not ready during startup:', error.message)
+    })
   } catch (error) {
     console.error('Failed to initialize app:', error)
     dialog.showErrorBox(

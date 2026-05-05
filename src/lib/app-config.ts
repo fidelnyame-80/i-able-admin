@@ -80,6 +80,17 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
   const configPath = getConfigPath()
   const bundledConfigPath = getBundledConfigPath()
   const secureStorage = safeStorage.isEncryptionAvailable()
+  const bundledDatabaseUrl = readBundledDatabaseUrl()
+
+  if (app.isPackaged && bundledDatabaseUrl) {
+    return {
+      databaseUrl: bundledDatabaseUrl,
+      source: 'bundledConfig',
+      configPath: bundledConfigPath,
+      secureStorage,
+    }
+  }
+
   const persistedConfig = readPersistedConfig()
   const storedDatabaseUrl = readStoredDatabaseUrl(persistedConfig)
 
@@ -102,7 +113,6 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
     }
   }
 
-  const bundledDatabaseUrl = readBundledDatabaseUrl()
   if (bundledDatabaseUrl) {
     return {
       databaseUrl: bundledDatabaseUrl,

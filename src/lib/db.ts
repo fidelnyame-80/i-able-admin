@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { Pool } from 'pg'
 import { resolveDatabaseConfig } from './app-config.js'
 import { DatabaseSchemaStatus, DatabaseStatus } from './types.js'
@@ -8,11 +7,12 @@ import { DatabaseSchemaStatus, DatabaseStatus } from './types.js'
 let pool: Pool | null = null
 let activeDatabaseUrl: string | null = null
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 function createPool(databaseUrl: string) {
   return new Pool({
     connectionString: databaseUrl,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: 30_000,
+    query_timeout: 15_000,
     ssl: {
       rejectUnauthorized: false, // For Neon Postgres compatibility
     },
@@ -31,6 +31,36 @@ function getEmptySchemaStatus(): DatabaseSchemaStatus {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Unknown database error'
+}
+
+function getSchemaIssueMessage(schema: DatabaseSchemaStatus) {
+  if (!schema.appointmentRequestsTable) {
+    return 'Connected to Postgres, but the required "appointment_requests" table was not found. Use the same database your public i-Able website writes appointments to.'
+  }
+
+  if (!schema.adminUsersTable) {
+    return 'Connected to Postgres, but the app could not create or access the "admin_users" table.'
+  }
+
+  const missingColumns: string[] = []
+
+  if (!schema.appointmentStatusColumn) {
+    missingColumns.push('status')
+  }
+
+  if (!schema.appointmentInternalNotesColumn) {
+    missingColumns.push('internal_notes')
+  }
+
+  if (!schema.appointmentContactedAtColumn) {
+    missingColumns.push('contacted_at')
+  }
+
+  if (missingColumns.length > 0) {
+    return `Connected to Postgres, but the "appointment_requests" table is missing required columns: ${missingColumns.join(', ')}.`
+  }
+
+  return null
 }
 
 async function inspectDatabaseSchema(db: Pool): Promise<DatabaseSchemaStatus> {
@@ -129,6 +159,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
       && schema.appointmentStatusColumn
       && schema.appointmentInternalNotesColumn
       && schema.appointmentContactedAtColumn
+    const schemaIssue = isReady ? null : getSchemaIssueMessage(schema)
 
     return {
       isConfigured: true,
@@ -138,7 +169,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
       configPath: resolvedConfig.configPath,
       secureStorage: resolvedConfig.secureStorage,
       schema,
-      lastError: null,
+      lastError: schemaIssue,
     }
   } catch (error) {
     return {

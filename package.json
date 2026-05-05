@@ -4,10 +4,10 @@
   "description": "i-Able Admin Desktop App - Appointment Management",
   "author": "i-Able",
   "main": "dist/main/main.js",
-  "type": "module",
+
   "scripts": {
-    "dev": "node ./node_modules/concurrently/dist/bin/concurrently.js \"node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --watch\" \"node ./node_modules/vite/bin/vite.js\" \"node ./node_modules/wait-on/bin/wait-on dist/main/main.js http://localhost:5173 && node ./node_modules/electron/cli.js .\"",
-    "build": "npm run type-check && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json && node ./node_modules/vite/bin/vite.js build",
+    "dev": "node ./node_modules/concurrently/dist/bin/concurrently.js \"node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --watch\" \"node ./node_modules/vite/bin/vite.js\" \"node ./node_modules/wait-on/bin/wait-on dist/main/main.js http://localhost:5173 && node ./scripts/start-electron.cjs .\"",
+    "build": "npm run type-check && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json && node ./node_modules/vite/bin/vite.js build && node -e \"require('fs').copyFileSync('src/preload.cjs', 'dist/preload.js')\"",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "prepare:bundle": "node ./scripts/prepare-bundled-config.mjs",
     "package": "npm run prepare:bundle && npm run build && node ./node_modules/electron-builder/cli.js --win nsis",

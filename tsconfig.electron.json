@@ -2,12 +2,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2020", "DOM"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "outDir": "dist",
     "rootDir": "src",
     "allowImportingTsExtensions": false,
-    "noEmit": false
+    "noEmit": false,
+    "esModuleInterop": true
   },
-  "include": ["src/main/**/*.ts", "src/preload.ts", "src/lib/**/*.ts"]
+  "include": ["src/main/**/*.ts", "src/lib/**/*.ts"],
+  "exclude": ["src/preload.ts"]
 }
