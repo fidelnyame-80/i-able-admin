@@ -3,15 +3,18 @@ import { useTheme } from '../context/ThemeContext'
 import { TopBar } from './TopBar'
 import { SearchBar } from './SearchBar'
 import { AppointmentList } from './AppointmentList'
+import { AppointmentTable } from './AppointmentTable'
 import { DetailPanel } from './DetailPanel'
 import { UpdateSettingsModal } from './UpdateSettingsModal'
 import { AppointmentRequest, AdminSession } from '../../lib/types'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, LayoutList, RefreshCw, Table2 } from 'lucide-react'
 
 interface DashboardProps {
   session: AdminSession | null
   onLogout: () => void
 }
+
+type DashboardView = 'cards' | 'table'
 
 export function Dashboard({ session, onLogout }: DashboardProps) {
   const { theme } = useTheme()
@@ -20,6 +23,7 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState('')
+  const [activeView, setActiveView] = useState<DashboardView>('cards')
   const [isUpdateSettingsOpen, setIsUpdateSettingsOpen] = useState(false)
 
   useEffect(() => {
@@ -96,6 +100,11 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
 
   const selectedAppointment = appointments.find((apt) => apt.id === selectedId) || null
   const hasSelection = selectedAppointment !== null
+  const contentPaneWidth = hasSelection
+    ? activeView === 'table'
+      ? 'lg:basis-[68%] lg:flex-none'
+      : 'lg:w-[30rem] lg:flex-none'
+    : 'flex-1 min-w-0'
 
   return (
     <div
@@ -116,9 +125,56 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
         <div
           className={`flex flex-col w-full lg:w-96 border-r ${
             theme.isDark ? 'border-gray-800' : 'border-gray-200'
-          } ${hasSelection ? 'lg:w-[30rem] lg:flex-none' : 'flex-1 min-w-0'}`}
+          } ${contentPaneWidth}`}
         >
           <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+
+          <div
+            className={`border-b px-4 py-3 ${
+              theme.isDark
+                ? 'border-gray-800 bg-gray-900'
+                : 'border-gray-200 bg-white'
+            }`}
+          >
+            <div
+              className={`grid grid-cols-2 gap-1 rounded-lg p-1 ${
+                theme.isDark ? 'bg-gray-950' : 'bg-slate-100'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveView('cards')}
+                className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  activeView === 'cards'
+                    ? theme.isDark
+                      ? 'bg-gray-800 text-white shadow-sm'
+                      : 'bg-white text-slate-950 shadow-sm'
+                    : theme.isDark
+                      ? 'text-gray-400 hover:text-gray-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutList size={16} />
+                Cards
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView('table')}
+                className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  activeView === 'table'
+                    ? theme.isDark
+                      ? 'bg-gray-800 text-white shadow-sm'
+                      : 'bg-white text-slate-950 shadow-sm'
+                    : theme.isDark
+                      ? 'text-gray-400 hover:text-gray-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Table2 size={16} />
+                Date Table
+              </button>
+            </div>
+          </div>
 
           {error && (
             <div className="p-4 bg-red-500/20 border-b border-red-500/50 flex gap-3">
@@ -131,12 +187,21 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
           )}
 
           <div className="flex-1 flex flex-col overflow-hidden">
-            <AppointmentList
-              appointments={appointments}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              isLoading={isLoading && appointments.length === 0}
-            />
+            {activeView === 'cards' ? (
+              <AppointmentList
+                appointments={appointments}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                isLoading={isLoading && appointments.length === 0}
+              />
+            ) : (
+              <AppointmentTable
+                appointments={appointments}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                isLoading={isLoading && appointments.length === 0}
+              />
+            )}
           </div>
 
           {appointments.length > 0 && !isLoading && (
