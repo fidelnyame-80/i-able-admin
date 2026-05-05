@@ -40,6 +40,15 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+DO $$ BEGIN
+  IF to_regclass('public.appointment_requests') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'appointment_requests' AND column_name = 'session_type') THEN
+    ALTER TABLE appointment_requests
+    ADD COLUMN session_type TEXT NOT NULL DEFAULT 'In person';
+  END IF;
+END $$;
+
 -- 3. Create index for faster searches
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 
@@ -54,6 +63,13 @@ DO $$ BEGIN
   IF to_regclass('public.appointment_requests') IS NOT NULL THEN
     CREATE INDEX IF NOT EXISTS idx_appointment_requests_created_at
       ON appointment_requests(created_at DESC);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.appointment_requests') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS idx_appointment_requests_session_type
+      ON appointment_requests(session_type);
   END IF;
 END $$;
 

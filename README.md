@@ -13,7 +13,7 @@ A professional Electron desktop application for managing i-Able appointment requ
 
 ✅ **Appointment Management**
 - View all appointment requests from the public website
-- Real-time search by name, email, phone, or service
+- Real-time search by name, email, phone, service, or session type
 - Status workflow: new → contacted → confirmed → completed/cancelled
 - Update status and add internal notes (Director/Master only)
 - Track when appointments were contacted
@@ -91,7 +91,7 @@ A professional Electron desktop application for managing i-Able appointment requ
    
    This will:
    - Create the `admin_users` table
-   - Add `status`, `internal_notes`, and `contacted_at` columns to `appointment_requests`
+  - Add `status`, `internal_notes`, `contacted_at`, and `session_type` columns to `appointment_requests`
    - Create indexes for better performance
 
    The installed Windows app will also run the safe setup automatically after a
@@ -259,6 +259,8 @@ React/Vite Renderer
 ```sql
 - status (TEXT DEFAULT 'new')
   Values: 'new' | 'contacted' | 'confirmed' | 'completed' | 'cancelled'
+- session_type (TEXT DEFAULT 'In person')
+  Values from the public booking form: 'Online' | 'In person'
 - internal_notes (TEXT nullable)
 - contacted_at (TIMESTAMPTZ nullable)
 ```

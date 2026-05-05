@@ -4,8 +4,8 @@ import { AppointmentRequest } from './types.js'
 export async function getAppointments(): Promise<AppointmentRequest[]> {
   const db = getDatabase()
   const result = await db.query(
-    `SELECT 
-       id, full_name, phone, email, service, preferred_date, preferred_time,
+     `SELECT 
+       id, full_name, phone, email, service, session_type, preferred_date, preferred_time,
        notes, status, internal_notes, contacted_at, created_at
      FROM appointment_requests
      ORDER BY created_at DESC`,
@@ -18,8 +18,8 @@ export async function getAppointmentById(
 ): Promise<AppointmentRequest | null> {
   const db = getDatabase()
   const result = await db.query(
-    `SELECT 
-       id, full_name, phone, email, service, preferred_date, preferred_time,
+     `SELECT 
+       id, full_name, phone, email, service, session_type, preferred_date, preferred_time,
        notes, status, internal_notes, contacted_at, created_at
      FROM appointment_requests
      WHERE id = $1`,
@@ -35,14 +35,15 @@ export async function searchAppointments(
   const searchTerm = `%${query}%`
 
   const result = await db.query(
-    `SELECT 
-       id, full_name, phone, email, service, preferred_date, preferred_time,
+     `SELECT 
+       id, full_name, phone, email, service, session_type, preferred_date, preferred_time,
        notes, status, internal_notes, contacted_at, created_at
      FROM appointment_requests
      WHERE full_name ILIKE $1
         OR phone ILIKE $1
         OR email ILIKE $1
         OR service ILIKE $1
+        OR session_type ILIKE $1
      ORDER BY created_at DESC`,
     [searchTerm],
   )
@@ -71,7 +72,7 @@ export async function updateAppointmentStatus(
           contacted_at = ${contactedAt}
       WHERE id = $3
       RETURNING 
-        id, full_name, phone, email, service, preferred_date, preferred_time,
+        id, full_name, phone, email, service, session_type, preferred_date, preferred_time,
         notes, status, internal_notes, contacted_at, created_at`,
     [status, internalNotes ?? null, id],
   )

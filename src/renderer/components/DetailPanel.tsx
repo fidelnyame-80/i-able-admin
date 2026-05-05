@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, AlertCircle } from 'lucide-react'
+import { X, Save, AlertCircle, MapPin, Monitor } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { AppointmentRequest, AdminSession } from '../../lib/types'
 
@@ -30,6 +30,10 @@ function getStatusColor(status: string, isDark: boolean) {
       : { bg: 'bg-red-100', text: 'text-red-800' },
   }
   return statusColors[status] || statusColors['new']
+}
+
+function isOnlineSession(sessionType: string) {
+  return sessionType.toLowerCase().includes('online')
 }
 
 export function DetailPanel({
@@ -74,6 +78,8 @@ export function DetailPanel({
   if (!appointment) return null
 
   const statusColors = getStatusColor(appointment.status, theme.isDark)
+  const sessionType = appointment.session_type || 'In person'
+  const SessionIcon = isOnlineSession(sessionType) ? Monitor : MapPin
 
   return (
     <div
@@ -130,6 +136,19 @@ export function DetailPanel({
             </div>
             <div>
               <span className="font-medium">Service:</span> {appointment.service}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Session:</span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
+                  theme.isDark
+                    ? 'bg-slate-800 text-slate-200'
+                    : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                <SessionIcon size={13} />
+                {sessionType}
+              </span>
             </div>
           </div>
         </div>

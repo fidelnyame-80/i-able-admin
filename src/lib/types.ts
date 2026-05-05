@@ -4,6 +4,7 @@ export interface AppointmentRequest {
   phone: string
   email: string
   service: string
+  session_type: string
   preferred_date: string
   preferred_time: string
   notes: string
@@ -97,6 +98,7 @@ export interface DatabaseSchemaStatus {
   appointmentStatusColumn: boolean
   appointmentInternalNotesColumn: boolean
   appointmentContactedAtColumn: boolean
+  appointmentSessionTypeColumn: boolean
 }
 
 export interface DatabaseStatus {

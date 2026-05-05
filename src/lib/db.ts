@@ -26,6 +26,7 @@ function getEmptySchemaStatus(): DatabaseSchemaStatus {
     appointmentStatusColumn: false,
     appointmentInternalNotesColumn: false,
     appointmentContactedAtColumn: false,
+    appointmentSessionTypeColumn: false,
   }
 }
 
@@ -54,6 +55,10 @@ function getSchemaIssueMessage(schema: DatabaseSchemaStatus) {
 
   if (!schema.appointmentContactedAtColumn) {
     missingColumns.push('contacted_at')
+  }
+
+  if (!schema.appointmentSessionTypeColumn) {
+    missingColumns.push('session_type')
   }
 
   if (missingColumns.length > 0) {
@@ -88,7 +93,14 @@ async function inspectDatabaseSchema(db: Pool): Promise<DatabaseSchemaStatus> {
          WHERE table_schema = 'public'
            AND table_name = 'appointment_requests'
            AND column_name = 'contacted_at'
-       ) AS "appointmentContactedAtColumn"`,
+       ) AS "appointmentContactedAtColumn",
+       EXISTS (
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'appointment_requests'
+           AND column_name = 'session_type'
+       ) AS "appointmentSessionTypeColumn"`,
   )
 
   return result.rows[0] as DatabaseSchemaStatus
@@ -159,6 +171,7 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
       && schema.appointmentStatusColumn
       && schema.appointmentInternalNotesColumn
       && schema.appointmentContactedAtColumn
+      && schema.appointmentSessionTypeColumn
     const schemaIssue = isReady ? null : getSchemaIssueMessage(schema)
 
     return {

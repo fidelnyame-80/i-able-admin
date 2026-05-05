@@ -47,6 +47,10 @@ export function DatabaseSetupPage({
         label: 'Required appointment contacted timestamp column',
         passed: status?.schema.appointmentContactedAtColumn ?? false,
       },
+      {
+        label: 'Required appointment session type column',
+        passed: status?.schema.appointmentSessionTypeColumn ?? false,
+      },
     ],
     [status],
   )

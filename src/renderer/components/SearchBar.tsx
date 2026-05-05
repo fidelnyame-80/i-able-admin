@@ -40,7 +40,7 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, email, phone, or service..."
+          placeholder="Search by name, email, phone, service, or session..."
           className={`ml-3 w-full bg-transparent outline-none text-sm ${
             theme.isDark ? 'placeholder-gray-600' : 'placeholder-gray-400'
           }`}

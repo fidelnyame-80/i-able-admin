@@ -1,6 +1,6 @@
 import { useTheme } from '../context/ThemeContext'
 import { AppointmentRequest } from '../../lib/types'
-import { Calendar, Clock, Phone, Mail } from 'lucide-react'
+import { Calendar, Clock, Phone, Mail, MapPin, Monitor } from 'lucide-react'
 
 interface AppointmentListProps {
   appointments: AppointmentRequest[]
@@ -28,6 +28,10 @@ function getStatusColor(status: string, isDark: boolean) {
       : { bg: 'bg-red-100', text: 'text-red-800' },
   }
   return statusColors[status] || statusColors['new']
+}
+
+function isOnlineSession(sessionType: string) {
+  return sessionType.toLowerCase().includes('online')
 }
 
 export function AppointmentList({
@@ -80,6 +84,8 @@ export function AppointmentList({
         {appointments.map((apt) => {
           const statusColors = getStatusColor(apt.status, theme.isDark)
           const isSelected = selectedId === apt.id
+          const sessionType = apt.session_type || 'In person'
+          const SessionIcon = isOnlineSession(sessionType) ? Monitor : MapPin
 
           return (
             <button
@@ -143,6 +149,16 @@ export function AppointmentList({
                       {apt.preferred_time}
                     </span>
                   )}
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
+                      theme.isDark
+                        ? 'bg-slate-700 text-slate-100'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <SessionIcon size={13} />
+                    {sessionType}
+                  </span>
                   <span
                     className={`inline-flex rounded-full px-2.5 py-1 ${
                       theme.isDark
