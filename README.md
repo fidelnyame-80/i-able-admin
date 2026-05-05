@@ -27,6 +27,17 @@ A professional Electron desktop application for managing i-Able appointment requ
 - Smooth transitions and animations
 - First-run database setup for installed Windows builds
 
+✅ **Local App Updates**
+- Optional automatic update checks for installed Windows builds
+- In-app update settings with feed URL, auto-download, and auto-install controls
+- Local update feed staging for LAN/shared-device installs
+- Watch mode that can package and publish a new local update after source changes
+
+✅ **GitHub Release Updates**
+- GitHub Releases can be used as the default update source for installed apps
+- Pushes to `master` can publish a fresh Windows installer automatically through GitHub Actions
+- Installed apps can poll the repository’s Releases feed and download new builds automatically
+
 ✅ **Security**
 - No direct database access from frontend
 - Secure Electron IPC with contextBridge
@@ -55,10 +66,13 @@ A professional Electron desktop application for managing i-Able appointment requ
    ```
    
    Edit `.env` and add your Neon Postgres connection string:
-   ```env
-   DATABASE_URL=postgresql://user:password@host/database
-   NODE_ENV=development
-   ```
+    ```env
+    DATABASE_URL=postgresql://user:password@host/database
+    AUTO_UPDATE_URL=http://192.168.1.50:4800/win
+    AUTO_UPDATE_PROVIDER=github
+    AUTO_UPDATE_GITHUB_REPOSITORY=fidelnyame-80/i-able-admin
+    NODE_ENV=development
+    ```
 
    You can get your `DATABASE_URL` from Neon:
    - Go to https://console.neon.tech
@@ -119,16 +133,62 @@ Expected artifacts:
 - `release/i-Able Admin-Setup-<version>.exe`
 - `release/win-unpacked/`
 
+### Local Auto-Update Workflow
+
+If you want installed devices on your network to receive local updates automatically:
+
+1. Set `AUTO_UPDATE_URL` in `.env` to the URL other devices can reach.
+2. Install the packaged app on each device.
+3. In the app, open **App Updates** from the top bar and confirm automatic updates are enabled.
+4. On your main machine, run:
+   ```bash
+   npm run serve:updates
+   ```
+5. When you want to publish a new update to those devices, run:
+   ```bash
+   npm run package:update-local
+   ```
+
+`npm run package:update-local` automatically generates the next patch version for the packaged build, builds the installer, and stages `latest.yml` plus the Windows artifacts into `release/updates/win`.
+
+If you want the local update package to refresh itself whenever project files change, run:
+
+```bash
+npm run watch:updates:local
+```
+
+That watch mode is intentionally heavy because it rebuilds and repackages the Windows app with a new update version each time it publishes.
+
+### GitHub Auto-Update Workflow
+
+If you want a `git push` to publish a new app update:
+
+1. Push to the `master` branch.
+2. GitHub Actions runs `.github/workflows/release-windows.yml`.
+3. The workflow installs dependencies, generates a new release version, builds the Windows app, and publishes a GitHub Release.
+4. Installed apps configured for **GitHub Releases** will detect that new release on their next update check.
+
+Important notes:
+
+- A GitHub push alone does not install updates. The workflow must finish successfully and publish the release assets first.
+- This auto-update path is intended for a **public** GitHub repository. Private GitHub update feeds require extra token handling on each client device.
+- The GitHub release workflow intentionally does **not** bundle a `DATABASE_URL` into public installers. Each device can keep its saved database connection across updates, and new devices can enter the connection on first launch.
+- Existing devices need to be running a build that already contains the updater. After that, future releases can arrive through auto-update.
+
 ## First Launch (Installed App)
 
 On the first launch of the installed Windows app:
 1. If the installer was built with a `DATABASE_URL`, the app connects automatically
 2. If no bundled database URL exists, paste the Neon Postgres connection string into the setup screen
 3. The app verifies the connection and applies the safe schema setup
-4. Once the database is ready, the normal login/signup flow appears
+4. If the installer was built with GitHub update settings, the app can check GitHub Releases for future updates
+5. If the installer was built with an `AUTO_UPDATE_URL`, the app can also check that custom feed for future updates
+6. Once the database is ready, the normal login/signup flow appears
 
 The installed app stores the connection string in the Electron user data folder
-and uses Windows secure storage when it is available.
+and uses Windows secure storage when it is available. That saved connection
+remains in place when the app later updates itself through GitHub Releases or a
+local update feed.
 
 ## Admin Accounts
 

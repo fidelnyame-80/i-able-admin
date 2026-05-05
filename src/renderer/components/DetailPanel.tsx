@@ -71,35 +71,17 @@ export function DetailPanel({
     }
   }
 
-  if (!appointment) {
-    return (
-      <div
-        className={`hidden lg:flex flex-col items-center justify-center w-96 border-l ${
-          theme.isDark
-            ? 'bg-gray-900 border-gray-800'
-            : 'bg-white border-gray-200'
-        }`}
-      >
-        <p
-          className={`text-center ${
-            theme.isDark ? 'text-gray-400' : 'text-gray-600'
-          }`}
-        >
-          Select an appointment to view details
-        </p>
-      </div>
-    )
-  }
+  if (!appointment) return null
 
   const statusColors = getStatusColor(appointment.status, theme.isDark)
 
   return (
     <div
-      className={`hidden lg:flex flex-col w-96 border-l ${
+      className={`absolute inset-0 z-20 flex flex-col ${
         theme.isDark
           ? 'bg-gray-900 border-gray-800'
           : 'bg-white border-gray-200'
-      }`}
+      } lg:relative lg:inset-auto lg:z-auto lg:min-w-0 lg:flex-1 lg:border-l`}
     >
       {/* Header */}
       <div

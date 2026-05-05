@@ -4,6 +4,7 @@ import { TopBar } from './TopBar'
 import { SearchBar } from './SearchBar'
 import { AppointmentList } from './AppointmentList'
 import { DetailPanel } from './DetailPanel'
+import { UpdateSettingsModal } from './UpdateSettingsModal'
 import { AppointmentRequest, AdminSession } from '../../lib/types'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 
@@ -19,6 +20,7 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState('')
+  const [isUpdateSettingsOpen, setIsUpdateSettingsOpen] = useState(false)
 
   useEffect(() => {
     loadAppointments()
@@ -93,6 +95,7 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
   }
 
   const selectedAppointment = appointments.find((apt) => apt.id === selectedId) || null
+  const hasSelection = selectedAppointment !== null
 
   return (
     <div
@@ -102,14 +105,18 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
           : 'bg-white text-gray-900'
       }`}
     >
-      <TopBar session={session} onLogout={onLogout} />
+      <TopBar
+        session={session}
+        onLogout={onLogout}
+        onOpenUpdateSettings={() => setIsUpdateSettingsOpen(true)}
+      />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="relative flex-1 min-h-0 overflow-hidden lg:flex">
         {/* Left Sidebar */}
         <div
           className={`flex flex-col w-full lg:w-96 border-r ${
             theme.isDark ? 'border-gray-800' : 'border-gray-200'
-          }`}
+          } ${hasSelection ? 'lg:w-[30rem] lg:flex-none' : 'flex-1 min-w-0'}`}
         >
           <SearchBar onSearch={handleSearch} isLoading={isLoading} />
 
@@ -167,15 +174,21 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
           )}
         </div>
 
-        {/* Right Detail Panel */}
-        <DetailPanel
-          appointment={selectedAppointment}
-          onClose={() => setSelectedId(null)}
-          onSave={handleUpdateStatus}
-          isLoading={isLoading}
-          adminSession={session}
-        />
+        {selectedAppointment && (
+          <DetailPanel
+            appointment={selectedAppointment}
+            onClose={() => setSelectedId(null)}
+            onSave={handleUpdateStatus}
+            isLoading={isLoading}
+            adminSession={session}
+          />
+        )}
       </div>
+
+      <UpdateSettingsModal
+        isOpen={isUpdateSettingsOpen}
+        onClose={() => setIsUpdateSettingsOpen(false)}
+      />
     </div>
   )
 }

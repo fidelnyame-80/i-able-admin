@@ -85,7 +85,7 @@ export function AppointmentList({
             <button
               key={apt.id}
               onClick={() => onSelect(apt.id)}
-              className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+              className={`w-full text-left p-4 rounded-xl border transition-all ${
                 isSelected
                   ? theme.isDark
                     ? 'border-yellow-500 bg-yellow-500/10'
@@ -95,56 +95,59 @@ export function AppointmentList({
                     : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3
-                    className={`font-semibold truncate ${
-                      theme.isDark ? 'text-white' : 'text-gray-900'
-                    }`}
-                  >
-                    {apt.full_name}
-                  </h3>
-                  <div
-                    className={`flex items-center gap-4 mt-2 text-xs ${
-                      theme.isDark ? 'text-gray-400' : 'text-gray-600'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1">
-                      <Phone size={14} />
-                      {apt.phone}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Mail size={14} />
-                      {apt.email}
-                    </span>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h3
+                      className={`font-semibold truncate ${
+                        theme.isDark ? 'text-white' : 'text-gray-900'
+                      }`}
+                    >
+                      {apt.full_name}
+                    </h3>
                   </div>
-                  <div
-                    className={`flex items-center gap-4 mt-2 text-xs ${
-                      theme.isDark ? 'text-gray-500' : 'text-gray-600'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1">
-                      <Calendar size={14} />
-                      {new Date(apt.preferred_date).toLocaleDateString()}
-                    </span>
-                    {apt.preferred_time && (
-                      <span className="flex items-center gap-1">
-                        <Clock size={14} />
-                        {apt.preferred_time}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 items-end">
                   <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full capitalize ${statusColors.bg} ${statusColors.text}`}
+                    className={`shrink-0 text-xs font-semibold px-3 py-1 rounded-full capitalize ${statusColors.bg} ${statusColors.text}`}
                   >
                     {apt.status}
                   </span>
+                </div>
+
+                <div
+                  className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-xs ${
+                    theme.isDark ? 'text-gray-400' : 'text-gray-600'
+                  }`}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <Phone size={14} className="shrink-0" />
+                    <span className="truncate">{apt.phone}</span>
+                  </span>
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <Mail size={14} className="shrink-0" />
+                    <span className="truncate">{apt.email}</span>
+                  </span>
+                </div>
+
+                <div
+                  className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-xs ${
+                    theme.isDark ? 'text-gray-500' : 'text-gray-600'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar size={14} />
+                    {new Date(apt.preferred_date).toLocaleDateString()}
+                  </span>
+                  {apt.preferred_time && (
+                    <span className="inline-flex items-center gap-1">
+                      <Clock size={14} />
+                      {apt.preferred_time}
+                    </span>
+                  )}
                   <span
-                    className={`text-xs ${
-                      theme.isDark ? 'text-gray-500' : 'text-gray-500'
+                    className={`inline-flex rounded-full px-2.5 py-1 ${
+                      theme.isDark
+                        ? 'bg-gray-700 text-gray-200'
+                        : 'bg-gray-100 text-gray-700'
                     }`}
                   >
                     {apt.service}

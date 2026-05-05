@@ -3,21 +3,32 @@
   "version": "1.0.0",
   "description": "i-Able Admin Desktop App - Appointment Management",
   "author": "i-Able",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fidelnyame-80/i-able-admin.git"
+  },
   "main": "dist/main/main.js",
-
   "scripts": {
     "dev": "node ./node_modules/concurrently/dist/bin/concurrently.js \"node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json --watch\" \"node ./node_modules/vite/bin/vite.js\" \"node ./node_modules/wait-on/bin/wait-on dist/main/main.js http://localhost:5173 && node ./scripts/start-electron.cjs .\"",
     "build": "npm run type-check && node ./node_modules/typescript/bin/tsc -p tsconfig.electron.json && node ./node_modules/vite/bin/vite.js build && node -e \"require('fs').copyFileSync('src/preload.cjs', 'dist/preload.js')\"",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "prepare:bundle": "node ./scripts/prepare-bundled-config.mjs",
+    "prepare:release-version": "node ./scripts/write-github-release-version.mjs",
     "package": "npm run prepare:bundle && npm run build && node ./node_modules/electron-builder/cli.js --win nsis",
     "package:win": "npm run prepare:bundle && npm run build && node ./node_modules/electron-builder/cli.js --win nsis",
+    "package:github-release": "node ./node_modules/electron-builder/cli.js --win nsis --publish always --config .\\scripts\\electron-builder.github-release.cjs",
+    "stage:updates:local": "node ./scripts/stage-local-updates.mjs",
+    "prepare:update-local": "node ./scripts/write-local-update-version.mjs",
+    "package:update-local": "node ./node_modules/electron-builder/cli.js --win nsis --config .\\scripts\\electron-builder.local-update.cjs",
+    "serve:updates": "node ./scripts/serve-local-updates.mjs",
+    "watch:updates:local": "node ./scripts/watch-local-updates.mjs",
     "lint": "node ./node_modules/eslint/bin/eslint.js src",
     "type-check": "node ./node_modules/typescript/bin/tsc --noEmit"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.6.1",
+    "electron-updater": "^6.8.3",
     "lucide-react": "^0.344.0",
     "pg": "^8.11.3",
     "react": "^18.2.0",

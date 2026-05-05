@@ -4,6 +4,8 @@ import type {
   DatabaseStatus,
   SignupRequest,
   LoginRequest,
+  AppUpdateSettings,
+  AppUpdateStatus,
 } from './lib/types.js'
 
 interface IpcResponse<T> {
@@ -28,6 +30,13 @@ declare global {
       searchAppointments: (query: string) => Promise<IpcResponse<AppointmentRequest[]>>
       getAppointmentById: (id: number) => Promise<IpcResponse<AppointmentRequest>>
       updateAppointmentStatus: (id: number, status: string, internalNotes?: string) => Promise<IpcResponse<AppointmentRequest>>
+      getUpdateSettings: () => Promise<IpcResponse<AppUpdateSettings>>
+      saveUpdateSettings: (settings: AppUpdateSettings) => Promise<IpcResponse<AppUpdateSettings>>
+      getUpdateStatus: () => Promise<IpcResponse<AppUpdateStatus>>
+      checkForAppUpdates: () => Promise<IpcResponse<AppUpdateStatus>>
+      downloadAppUpdate: () => Promise<IpcResponse<AppUpdateStatus>>
+      installAppUpdate: () => Promise<IpcResponse<void>>
+      onUpdateStatusChanged: (callback: (status: AppUpdateStatus) => void) => () => void
     }
   }
 }

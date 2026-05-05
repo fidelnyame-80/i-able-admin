@@ -1,4 +1,4 @@
-import { Moon, Sun, LogOut } from 'lucide-react'
+import { Moon, Sun, LogOut, Settings } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { AdminSession } from '../../lib/types'
 import logoIcon from '../../images/i-able-logo.png'
@@ -6,9 +6,14 @@ import logoIcon from '../../images/i-able-logo.png'
 interface TopBarProps {
   session: AdminSession | null
   onLogout: () => void
+  onOpenUpdateSettings: () => void
 }
 
-export function TopBar({ session, onLogout }: TopBarProps) {
+export function TopBar({
+  session,
+  onLogout,
+  onOpenUpdateSettings,
+}: TopBarProps) {
   const { theme, toggleTheme } = useTheme()
 
   return (
@@ -40,6 +45,18 @@ export function TopBar({ session, onLogout }: TopBarProps) {
             <div className="capitalize text-xs opacity-75">{session.role} Admin</div>
           </div>
         )}
+
+        <button
+          onClick={onOpenUpdateSettings}
+          className={`p-2 rounded-lg transition-colors ${
+            theme.isDark
+              ? 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+          }`}
+          title="App updates"
+        >
+          <Settings size={20} />
+        </button>
 
         <button
           onClick={toggleTheme}

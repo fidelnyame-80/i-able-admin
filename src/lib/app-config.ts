@@ -1,17 +1,24 @@
 import { app, safeStorage } from 'electron'
 import fs from 'fs'
 import path from 'path'
-import { DatabaseConfigSource } from './types.js'
+import {
+  AppUpdateProvider,
+  AppUpdateSettings,
+  DatabaseConfigSource,
+} from './types.js'
 
 interface PersistedAppConfig {
   database?: {
     value: string
     isEncrypted: boolean
   }
+  updates?: AppUpdateSettings
 }
 
 interface BundledAppConfig {
   databaseUrl?: string
+  updateUrl?: string
+  updateSettings?: Partial<AppUpdateSettings>
 }
 
 export interface ResolvedDatabaseConfig {
@@ -23,6 +30,16 @@ export interface ResolvedDatabaseConfig {
 
 const CONFIG_FILE_NAME = 'config.json'
 const BUNDLED_CONFIG_RELATIVE_PATH = path.join('config', 'default-config.json')
+const DEFAULT_UPDATE_SETTINGS: AppUpdateSettings = {
+  provider: 'github',
+  updateUrl: '',
+  githubOwner: '',
+  githubRepo: '',
+  enabled: false,
+  autoDownload: true,
+  autoInstallOnQuit: true,
+  checkIntervalMinutes: 5,
+}
 
 function getConfigPath() {
   return path.join(app.getPath('userData'), CONFIG_FILE_NAME)
@@ -43,6 +60,12 @@ function readPersistedConfig(): PersistedAppConfig | null {
 
   const fileContents = fs.readFileSync(configPath, 'utf8')
   return JSON.parse(fileContents) as PersistedAppConfig
+}
+
+function writePersistedConfig(config: PersistedAppConfig) {
+  const configPath = getConfigPath()
+  fs.mkdirSync(path.dirname(configPath), { recursive: true })
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
 }
 
 function readStoredDatabaseUrl(config: PersistedAppConfig | null) {
@@ -74,6 +97,60 @@ function readBundledConfig(): BundledAppConfig | null {
 
 function readBundledDatabaseUrl() {
   return readBundledConfig()?.databaseUrl?.trim() || null
+}
+
+function normalizeUpdateProvider(
+  provider: string | undefined,
+  updateUrl: string,
+  githubOwner: string,
+  githubRepo: string,
+): AppUpdateProvider {
+  if (provider === 'generic' || provider === 'github') {
+    return provider
+  }
+
+  if (updateUrl) {
+    return 'generic'
+  }
+
+  if (githubOwner && githubRepo) {
+    return 'github'
+  }
+
+  return DEFAULT_UPDATE_SETTINGS.provider
+}
+
+function normalizeUpdateSettings(
+  settings?: Partial<AppUpdateSettings> | null,
+): AppUpdateSettings {
+  const updateUrl = settings?.updateUrl?.trim() || ''
+  const githubOwner = settings?.githubOwner?.trim() || ''
+  const githubRepo = settings?.githubRepo?.trim() || ''
+  const provider = normalizeUpdateProvider(
+    settings?.provider,
+    updateUrl,
+    githubOwner,
+    githubRepo,
+  )
+
+  return {
+    provider,
+    updateUrl,
+    githubOwner,
+    githubRepo,
+    enabled: settings?.enabled ?? DEFAULT_UPDATE_SETTINGS.enabled,
+    autoDownload:
+      settings?.autoDownload ?? DEFAULT_UPDATE_SETTINGS.autoDownload,
+    autoInstallOnQuit:
+      settings?.autoInstallOnQuit ?? DEFAULT_UPDATE_SETTINGS.autoInstallOnQuit,
+    checkIntervalMinutes: Math.max(
+      5,
+      Math.floor(
+        settings?.checkIntervalMinutes
+          ?? DEFAULT_UPDATE_SETTINGS.checkIntervalMinutes,
+      ),
+    ),
+  }
 }
 
 export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
@@ -136,9 +213,10 @@ export function saveDatabaseConfig(databaseUrl: string) {
     throw new Error('Database URL is required')
   }
 
-  const configPath = getConfigPath()
+  const existingConfig = readPersistedConfig() || {}
   const secureStorage = safeStorage.isEncryptionAvailable()
   const payload: PersistedAppConfig = {
+    ...existingConfig,
     database: secureStorage
       ? {
           value: safeStorage
@@ -152,8 +230,9 @@ export function saveDatabaseConfig(databaseUrl: string) {
         },
   }
 
-  fs.mkdirSync(path.dirname(configPath), { recursive: true })
-  fs.writeFileSync(configPath, JSON.stringify(payload, null, 2), 'utf8')
+  writePersistedConfig(payload)
+
+  const configPath = getConfigPath()
 
   return {
     configPath,
@@ -164,7 +243,50 @@ export function saveDatabaseConfig(databaseUrl: string) {
 export function clearStoredDatabaseConfig() {
   const configPath = getConfigPath()
 
-  if (fs.existsSync(configPath)) {
-    fs.unlinkSync(configPath)
+  const existingConfig = readPersistedConfig()
+  if (!existingConfig) {
+    return
   }
+
+  delete existingConfig.database
+
+  if (!existingConfig.updates) {
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath)
+    }
+    return
+  }
+
+  writePersistedConfig(existingConfig)
+}
+
+export function getDefaultUpdateSettings() {
+  return { ...DEFAULT_UPDATE_SETTINGS }
+}
+
+export function resolveUpdateSettings(): AppUpdateSettings {
+  const bundledConfig = readBundledConfig()
+  const persistedConfig = readPersistedConfig()
+
+  return normalizeUpdateSettings({
+    ...bundledConfig?.updateSettings,
+    ...(bundledConfig?.updateUrl
+      ? {
+          updateUrl: bundledConfig.updateUrl,
+        }
+      : {}),
+    ...persistedConfig?.updates,
+  })
+}
+
+export function saveUpdateSettings(settings: AppUpdateSettings) {
+  const nextSettings = normalizeUpdateSettings(settings)
+  const existingConfig = readPersistedConfig() || {}
+  const payload: PersistedAppConfig = {
+    ...existingConfig,
+    updates: nextSettings,
+  }
+
+  writePersistedConfig(payload)
+  return nextSettings
 }

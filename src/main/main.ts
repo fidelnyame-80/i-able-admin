@@ -20,6 +20,15 @@ import {
   clearStoredDatabaseConfig,
   saveDatabaseConfig,
 } from '../lib/app-config.js'
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getUpdateSettings,
+  getUpdateStatus,
+  installDownloadedUpdate,
+  refreshUpdateConfiguration,
+  saveUpdateSettings,
+} from './update-manager.js'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -56,10 +65,8 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
-    mainWindow.webContents.openDevTools()
   }
 
   mainWindow.on('closed', () => {
@@ -138,6 +145,50 @@ ipcMain.handle('config:clearDatabase', async () => {
 
     const status = await getDatabaseStatus()
     return { success: true, data: status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('updates:getSettings', () => {
+  return { success: true, data: getUpdateSettings() }
+})
+
+ipcMain.handle('updates:saveSettings', async (_event, settings) => {
+  try {
+    const savedSettings = await saveUpdateSettings(settings)
+    return { success: true, data: savedSettings }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('updates:getStatus', () => {
+  return { success: true, data: getUpdateStatus() }
+})
+
+ipcMain.handle('updates:check', async () => {
+  try {
+    const status = await checkForUpdates(true)
+    return { success: true, data: status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('updates:download', async () => {
+  try {
+    const status = await downloadUpdate()
+    return { success: true, data: status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('updates:install', () => {
+  try {
+    installDownloadedUpdate()
+    return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
   }
@@ -278,6 +329,9 @@ app.on('ready', () => {
     createMenu()
     void ensureDatabaseSetup().catch((error: any) => {
       console.warn('Database not ready during startup:', error.message)
+    })
+    void refreshUpdateConfiguration(true).catch((error: any) => {
+      console.warn('Update manager failed to initialize:', error.message)
     })
   } catch (error) {
     console.error('Failed to initialize app:', error)
