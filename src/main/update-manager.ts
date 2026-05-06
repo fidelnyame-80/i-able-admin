@@ -1,12 +1,11 @@
 import { app, BrowserWindow } from 'electron'
-import electronUpdater from 'electron-updater'
+import { NsisUpdater } from 'electron-updater'
 import {
   resolveUpdateSettings,
   saveUpdateSettings as persistUpdateSettings,
 } from '../lib/app-config.js'
 import { AppUpdateSettings, AppUpdateStatus } from '../lib/types.js'
 
-const { NsisUpdater } = electronUpdater
 const MIN_CHECK_INTERVAL_MINUTES = 5
 
 let updater: InstanceType<typeof NsisUpdater> | null = null

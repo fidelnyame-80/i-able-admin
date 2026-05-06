@@ -69,6 +69,21 @@ export function UpdateSettingsModal({
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   const statusTone = useMemo(() => {
     if (!status) {
       return 'text-gray-400'
@@ -145,9 +160,16 @@ export function UpdateSettingsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
       <div
-        className={`w-full max-w-2xl rounded-2xl border shadow-2xl ${
+        className={`flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-2xl ${
           theme.isDark
             ? 'border-gray-800 bg-gray-950 text-white'
             : 'border-gray-200 bg-white text-gray-900'
@@ -171,6 +193,7 @@ export function UpdateSettingsModal({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close app update settings"
             className={`rounded-lg p-2 transition-colors ${
               theme.isDark
                 ? 'text-gray-400 hover:bg-gray-800 hover:text-white'
@@ -181,7 +204,7 @@ export function UpdateSettingsModal({
           </button>
         </div>
 
-        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr,0.8fr]">
+        <div className="grid min-h-0 gap-6 overflow-y-auto p-6 lg:grid-cols-[1.15fr,0.85fr]">
           <div className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium">
@@ -256,29 +279,29 @@ export function UpdateSettingsModal({
               </div>
             ) : (
               <div>
-              <label className="mb-2 block text-sm font-medium">
-                Update feed URL
-              </label>
-              <input
-                type="url"
-                value={settings.updateUrl}
-                onChange={(event) =>
-                  updateField('updateUrl', event.target.value)
-                }
-                placeholder={updateUrlPlaceholder}
-                className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors ${
-                  theme.isDark
-                    ? 'border-gray-700 bg-gray-900 text-white placeholder-gray-600 focus:border-yellow-500'
-                    : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-yellow-600'
-                }`}
-              />
-              <p
-                className={`mt-2 text-xs ${
-                  theme.isDark ? 'text-gray-500' : 'text-gray-600'
-                }`}
-              >
-                Example: `http://your-computer-ip:4800/win`
-              </p>
+                <label className="mb-2 block text-sm font-medium">
+                  Update feed URL
+                </label>
+                <input
+                  type="url"
+                  value={settings.updateUrl}
+                  onChange={(event) =>
+                    updateField('updateUrl', event.target.value)
+                  }
+                  placeholder={updateUrlPlaceholder}
+                  className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors ${
+                    theme.isDark
+                      ? 'border-gray-700 bg-gray-900 text-white placeholder-gray-600 focus:border-yellow-500'
+                      : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-yellow-600'
+                  }`}
+                />
+                <p
+                  className={`mt-2 text-xs ${
+                    theme.isDark ? 'text-gray-500' : 'text-gray-600'
+                  }`}
+                >
+                  Example: `http://your-computer-ip:4800/win`
+                </p>
               </div>
             )}
 
@@ -521,7 +544,7 @@ export function UpdateSettingsModal({
         </div>
 
         <div
-          className={`flex items-center justify-between border-t px-6 py-4 ${
+          className={`flex shrink-0 items-center justify-between gap-4 border-t px-6 py-4 ${
             theme.isDark ? 'border-gray-800' : 'border-gray-200'
           }`}
         >
