@@ -8,7 +8,6 @@ import { AdminSession, DatabaseStatus } from '../lib/types'
 function AppContent() {
   const { theme } = useTheme()
   const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus | null>(null)
-  const [showDatabaseSetup, setShowDatabaseSetup] = useState(false)
   const [session, setSession] = useState<AdminSession | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
 
@@ -42,7 +41,6 @@ function AppContent() {
     setDatabaseStatus(status)
 
     if (status.isReady) {
-      setShowDatabaseSetup(false)
       void initializeApp()
     }
   }
@@ -88,12 +86,10 @@ function AppContent() {
   }
 
   const needsDatabaseSetup = !databaseStatus?.isReady
-  if (needsDatabaseSetup || showDatabaseSetup) {
+  if (needsDatabaseSetup) {
     return (
       <DatabaseSetupPage
         status={databaseStatus}
-        canCancel={!needsDatabaseSetup}
-        onCancel={() => setShowDatabaseSetup(false)}
         onConfigured={handleDatabaseStatus}
       />
     )
@@ -109,10 +105,7 @@ function AppContent() {
       {session ? (
         <Dashboard session={session} onLogout={handleLogout} />
       ) : (
-        <AuthPage
-          onLoginSuccess={handleLoginSuccess}
-          onOpenDatabaseSetup={() => setShowDatabaseSetup(true)}
-        />
+        <AuthPage onLoginSuccess={handleLoginSuccess} />
       )}
     </div>
   )

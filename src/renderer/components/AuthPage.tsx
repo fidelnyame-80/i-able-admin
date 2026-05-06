@@ -7,13 +7,9 @@ import logoIcon from '../../images/i-able-logo.png'
 
 interface AuthPageProps {
   onLoginSuccess: (session: AdminSession) => void
-  onOpenDatabaseSetup: () => void
 }
 
-export function AuthPage({
-  onLoginSuccess,
-  onOpenDatabaseSetup,
-}: AuthPageProps) {
+export function AuthPage({ onLoginSuccess }: AuthPageProps) {
   const { theme } = useTheme()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [isLoading, setIsLoading] = useState(false)
@@ -177,19 +173,6 @@ export function AuthPage({
                 </button>
               </p>
             )}
-            <p
-              className={`text-center mt-4 text-sm ${
-                theme.isDark ? 'text-gray-500' : 'text-gray-500'
-              }`}
-            >
-              Need to change the database connection?{' '}
-              <button
-                onClick={onOpenDatabaseSetup}
-                className="text-yellow-500 hover:text-yellow-400 font-medium"
-              >
-                Open setup
-              </button>
-            </p>
           </>
         ) : (
           <>
@@ -217,19 +200,6 @@ export function AuthPage({
                 className="text-yellow-500 hover:text-yellow-400 font-medium"
               >
                 Login
-              </button>
-            </p>
-            <p
-              className={`text-center mt-4 text-sm ${
-                theme.isDark ? 'text-gray-500' : 'text-gray-500'
-              }`}
-            >
-              Need to change the database connection?{' '}
-              <button
-                onClick={onOpenDatabaseSetup}
-                className="text-yellow-500 hover:text-yellow-400 font-medium"
-              >
-                Open setup
               </button>
             </p>
           </>

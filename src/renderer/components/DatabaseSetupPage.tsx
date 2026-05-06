@@ -1,29 +1,21 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, Database, ExternalLink, RefreshCw, Shield } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Database, RefreshCw, Shield } from 'lucide-react'
 import { DatabaseStatus } from '../../lib/types'
 import { useTheme } from '../context/ThemeContext'
 import logoIcon from '../../images/i-able-logo.png'
 
 interface DatabaseSetupPageProps {
-  canCancel?: boolean
-  onCancel?: () => void
   onConfigured: (status: DatabaseStatus) => void
   status: DatabaseStatus | null
 }
 
 export function DatabaseSetupPage({
-  canCancel = false,
-  onCancel,
   onConfigured,
   status,
 }: DatabaseSetupPageProps) {
   const { theme } = useTheme()
-  const [databaseUrl, setDatabaseUrl] = useState('')
-  const [showUrl, setShowUrl] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isClearing, setIsClearing] = useState(false)
 
   const schemaChecks = useMemo(
     () => [
@@ -77,50 +69,8 @@ export function DatabaseSetupPage({
     }
   }
 
-  const handleSave = async () => {
-    setIsSaving(true)
-    setError(null)
-
-    try {
-      const response = await window.electronAPI.saveDatabaseConfig(databaseUrl)
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Unable to save database settings')
-      }
-
-      setDatabaseUrl('')
-      onConfigured(response.data)
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save database settings',
-      )
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleClear = async () => {
-    setIsClearing(true)
-    setError(null)
-
-    try {
-      const response = await window.electronAPI.clearDatabaseConfig()
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Unable to clear saved database settings')
-      }
-
-      onConfigured(response.data)
-    } catch (clearError) {
-      setError(
-        clearError instanceof Error
-          ? clearError.message
-          : 'Unable to clear saved database settings',
-      )
-    } finally {
-      setIsClearing(false)
-    }
-  }
+  const isBundledConfig = status?.source === 'bundledConfig'
+  const isConfigured = Boolean(status && status.source !== 'none')
 
   return (
     <div
@@ -150,14 +100,14 @@ export function DatabaseSetupPage({
                   theme.isDark ? 'text-yellow-400' : 'text-amber-700'
                 }`}
               >
-                First-run Setup
+                Database Connection
               </p>
               <h1
                 className={`text-3xl font-bold ${
                   theme.isDark ? 'text-white' : 'text-slate-900'
                 }`}
               >
-                Connect i-Able Admin to your database
+                Connecting i-Able Admin
               </h1>
             </div>
           </div>
@@ -167,94 +117,48 @@ export function DatabaseSetupPage({
               theme.isDark ? 'text-gray-300' : 'text-slate-600'
             }`}
           >
-            Paste your Neon Postgres connection string below. The app will save it
-            for this Windows user, verify the connection, and run the safe schema
-            setup for the admin dashboard.
+            This app is already configured with the i-Able database connection.
+            It will verify access and prepare the admin dashboard automatically.
           </p>
 
-          <div className="space-y-4">
-            <label className="block">
-              <span
-                className={`mb-2 block text-sm font-semibold ${
-                  theme.isDark ? 'text-gray-200' : 'text-slate-700'
-                }`}
-              >
-                Postgres connection string
-              </span>
-              <div
-                className={`rounded-2xl border px-4 py-4 ${
-                  theme.isDark
-                    ? 'border-gray-700 bg-gray-950'
-                    : 'border-slate-200 bg-slate-50'
-                }`}
-              >
-                <input
-                  type={showUrl ? 'text' : 'password'}
-                  value={databaseUrl}
-                  onChange={(event) => setDatabaseUrl(event.target.value)}
-                  placeholder="postgresql://user:password@host/database?sslmode=require"
-                  className={`w-full bg-transparent text-sm outline-none ${
-                    theme.isDark ? 'text-white' : 'text-slate-900'
+          <div
+            className={`rounded-2xl border p-5 ${
+              theme.isDark
+                ? 'border-gray-800 bg-gray-950/60'
+                : 'border-slate-200 bg-slate-50'
+            }`}
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p
+                  className={`text-sm font-semibold ${
+                    theme.isDark ? 'text-gray-100' : 'text-slate-800'
                   }`}
-                />
+                >
+                  {isBundledConfig
+                    ? 'Database connection is bundled with this installer.'
+                    : isConfigured
+                      ? 'Database connection is configured for this device.'
+                      : 'Database connection is not configured in this build.'}
+                </p>
+                <p
+                  className={`mt-1 text-sm ${
+                    theme.isDark ? 'text-gray-400' : 'text-slate-600'
+                  }`}
+                >
+                  {status?.isConnected
+                    ? 'Connected. Preparing the dashboard.'
+                    : 'Waiting for this PC to reach the i-Able database.'}
+                </p>
               </div>
-            </label>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleSave}
-                disabled={isSaving || !databaseUrl.trim()}
-                className="inline-flex items-center justify-center rounded-xl bg-yellow-500 px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSaving ? 'Saving and configuring...' : 'Save and configure'}
-              </button>
-              <button
-                onClick={() => setShowUrl((previous) => !previous)}
-                className={`rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  theme.isDark
-                    ? 'bg-gray-800 text-gray-100 hover:bg-gray-700'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {showUrl ? 'Hide URL' : 'Show URL'}
-              </button>
               <button
                 onClick={refreshStatus}
                 disabled={isRefreshing}
-                className={`inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                  theme.isDark
-                    ? 'bg-gray-800 text-gray-100 hover:bg-gray-700'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                } disabled:cursor-not-allowed disabled:opacity-60`}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh status
+                {isRefreshing ? 'Checking...' : 'Retry connection'}
               </button>
-              {status?.source === 'userConfig' && (
-                <button
-                  onClick={handleClear}
-                  disabled={isClearing}
-                  className={`rounded-xl px-4 py-3 text-sm font-medium transition ${
-                    theme.isDark
-                      ? 'bg-red-950/60 text-red-200 hover:bg-red-900/70'
-                      : 'bg-red-50 text-red-700 hover:bg-red-100'
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {isClearing ? 'Clearing...' : 'Clear saved config'}
-                </button>
-              )}
-              {canCancel && onCancel && (
-                <button
-                  onClick={onCancel}
-                  className={`rounded-xl px-4 py-3 text-sm font-medium transition ${
-                    theme.isDark
-                      ? 'bg-gray-800 text-gray-100 hover:bg-gray-700'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Back to login
-                </button>
-              )}
             </div>
           </div>
 
@@ -340,6 +244,40 @@ export function DatabaseSetupPage({
           <div
             className={`rounded-3xl border p-6 ${
               theme.isDark
+                ? 'border-yellow-500/30 bg-yellow-500/10'
+                : 'border-amber-200 bg-amber-50'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle
+                className={`mt-0.5 h-5 w-5 ${
+                  theme.isDark ? 'text-yellow-300' : 'text-amber-700'
+                }`}
+              />
+              <div>
+                <h2
+                  className={`text-lg font-semibold ${
+                    theme.isDark ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
+                  Connection required
+                </h2>
+                <p
+                  className={`mt-2 text-sm leading-6 ${
+                    theme.isDark ? 'text-yellow-100/80' : 'text-amber-900'
+                  }`}
+                >
+                  If this screen stays here, check the PC internet connection,
+                  VPN/proxy settings, firewall rules, and whether outbound
+                  PostgreSQL traffic on port 5432 is allowed.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={`rounded-3xl border p-6 ${
+              theme.isDark
                 ? 'border-gray-800 bg-gray-900/95'
                 : 'border-white/70 bg-white/95'
             }`}
@@ -409,51 +347,6 @@ export function DatabaseSetupPage({
             </div>
           </div>
 
-          <div
-            className={`rounded-3xl border p-6 ${
-              theme.isDark
-                ? 'border-gray-800 bg-gray-900/95'
-                : 'border-white/70 bg-white/95'
-            }`}
-          >
-            <h2
-              className={`mb-3 text-lg font-semibold ${
-                theme.isDark ? 'text-white' : 'text-slate-900'
-              }`}
-            >
-              Before you continue
-            </h2>
-            <ul
-              className={`space-y-3 text-sm leading-6 ${
-                theme.isDark ? 'text-gray-300' : 'text-slate-600'
-              }`}
-            >
-              <li>
-                Use the same Neon Postgres database your public i-Able website uses
-                for `appointment_requests`.
-              </li>
-              <li>
-                The saved connection string is stored per Windows user, so each
-                workstation can point at the correct database.
-              </li>
-              <li>
-                If you already use a `.env` file during development, this screen can
-                still override it for the installed app.
-              </li>
-            </ul>
-
-            <a
-              href="https://console.neon.tech"
-              target="_blank"
-              rel="noreferrer"
-              className={`mt-5 inline-flex items-center gap-2 text-sm font-medium ${
-                theme.isDark ? 'text-yellow-400' : 'text-amber-700'
-              }`}
-            >
-              Open Neon Console
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </div>
         </div>
       </div>
     </div>
