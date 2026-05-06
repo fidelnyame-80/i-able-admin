@@ -10,9 +10,9 @@ let activeDatabaseUrl: string | null = null
 function createPool(databaseUrl: string) {
   return new Pool({
     connectionString: databaseUrl,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 30_000,
     idleTimeoutMillis: 30_000,
-    query_timeout: 15_000,
+    query_timeout: 30_000,
     ssl: {
       rejectUnauthorized: false, // For Neon Postgres compatibility
     },
@@ -31,7 +31,17 @@ function getEmptySchemaStatus(): DatabaseSchemaStatus {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Unknown database error'
+  const message = error instanceof Error ? error.message : 'Unknown database error'
+  const normalizedMessage = message.toLowerCase()
+  const looksLikeTimeout =
+    normalizedMessage.includes('timeout')
+    || normalizedMessage.includes('etimedout')
+
+  if (!looksLikeTimeout) {
+    return message
+  }
+
+  return `${message}. The installer has a database URL, but this PC could not reach Postgres. Check internet access, VPN/proxy settings, firewall rules, and whether outbound PostgreSQL traffic on port 5432 is allowed.`
 }
 
 function getSchemaIssueMessage(schema: DatabaseSchemaStatus) {
