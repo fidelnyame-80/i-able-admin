@@ -17,12 +17,14 @@ interface PersistedAppConfig {
 
 interface BundledAppConfig {
   databaseUrl?: string
+  databaseHostFallbacks?: string[]
   updateUrl?: string
   updateSettings?: Partial<AppUpdateSettings>
 }
 
 export interface ResolvedDatabaseConfig {
   databaseUrl: string | null
+  databaseHostFallbacks: string[]
   source: DatabaseConfigSource
   configPath: string | null
   secureStorage: boolean
@@ -99,6 +101,17 @@ function readBundledDatabaseUrl() {
   return readBundledConfig()?.databaseUrl?.trim() || null
 }
 
+function readBundledDatabaseHostFallbacks() {
+  const fallbackHosts = readBundledConfig()?.databaseHostFallbacks
+  if (!Array.isArray(fallbackHosts)) {
+    return []
+  }
+
+  return fallbackHosts
+    .map((host) => host.trim())
+    .filter(Boolean)
+}
+
 function normalizeUpdateProvider(
   provider: string | undefined,
   updateUrl: string,
@@ -158,10 +171,12 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
   const bundledConfigPath = getBundledConfigPath()
   const secureStorage = safeStorage.isEncryptionAvailable()
   const bundledDatabaseUrl = readBundledDatabaseUrl()
+  const bundledDatabaseHostFallbacks = readBundledDatabaseHostFallbacks()
 
   if (app.isPackaged && bundledDatabaseUrl) {
     return {
       databaseUrl: bundledDatabaseUrl,
+      databaseHostFallbacks: bundledDatabaseHostFallbacks,
       source: 'bundledConfig',
       configPath: bundledConfigPath,
       secureStorage,
@@ -174,6 +189,7 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
   if (storedDatabaseUrl) {
     return {
       databaseUrl: storedDatabaseUrl,
+      databaseHostFallbacks: [],
       source: 'userConfig',
       configPath,
       secureStorage,
@@ -184,6 +200,7 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
   if (environmentDatabaseUrl) {
     return {
       databaseUrl: environmentDatabaseUrl,
+      databaseHostFallbacks: [],
       source: 'environment',
       configPath: null,
       secureStorage,
@@ -193,6 +210,7 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
   if (bundledDatabaseUrl) {
     return {
       databaseUrl: bundledDatabaseUrl,
+      databaseHostFallbacks: bundledDatabaseHostFallbacks,
       source: 'bundledConfig',
       configPath: bundledConfigPath,
       secureStorage,
@@ -201,6 +219,7 @@ export function resolveDatabaseConfig(): ResolvedDatabaseConfig {
 
   return {
     databaseUrl: null,
+    databaseHostFallbacks: [],
     source: 'none',
     configPath: null,
     secureStorage,

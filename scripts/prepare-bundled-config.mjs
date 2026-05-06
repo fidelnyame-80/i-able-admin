@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import dns from 'dns/promises'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
 import dotenv from 'dotenv'
@@ -18,6 +19,67 @@ if (process.env.GITHUB_ACTIONS !== 'true') {
 const databaseUrl = process.env.DATABASE_URL?.trim() || ''
 const updateProvider = (process.env.AUTO_UPDATE_PROVIDER?.trim().toLowerCase() || '')
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+const DNS_LOOKUP_TIMEOUT_MS = 2_000
+const FALLBACK_DNS_SERVERS = ['1.1.1.1', '8.8.8.8', '9.9.9.9']
+
+async function withTimeout(promise, timeoutMs) {
+  let timeout = null
+  const timeoutPromise = new Promise((_, reject) => {
+    timeout = setTimeout(
+      () => reject(new Error('DNS lookup timed out')),
+      timeoutMs,
+    )
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
+  }
+}
+
+function getUniqueValues(values) {
+  return [...new Set(values.filter(Boolean))]
+}
+
+async function resolveDatabaseHostFallbacks(rawDatabaseUrl) {
+  if (!rawDatabaseUrl) {
+    return []
+  }
+
+  let hostname = ''
+  try {
+    hostname = new URL(rawDatabaseUrl).hostname
+  } catch {
+    return []
+  }
+
+  const resolvedAddresses = []
+  const lookupAttempts = [
+    async () => {
+      const results = await dns.lookup(hostname, { family: 4, all: true })
+      return results.map((result) => result.address)
+    },
+    ...FALLBACK_DNS_SERVERS.map((server) => async () => {
+      const resolver = new dns.Resolver()
+      resolver.setServers([server])
+      return resolver.resolve4(hostname)
+    }),
+  ]
+
+  for (const lookup of lookupAttempts) {
+    try {
+      const addresses = await withTimeout(lookup(), DNS_LOOKUP_TIMEOUT_MS)
+      resolvedAddresses.push(...addresses)
+    } catch {
+      // Packaging should still succeed if DNS is unavailable locally.
+    }
+  }
+
+  return getUniqueValues(resolvedAddresses)
+}
 
 function parseGithubRepo(rawValue) {
   if (!rawValue) {
@@ -119,8 +181,11 @@ const updateSettings = shouldUseGenericProvider
       }
     : null
 
+const databaseHostFallbacks = await resolveDatabaseHostFallbacks(databaseUrl)
+
 const payload = {
   ...(databaseUrl ? { databaseUrl } : {}),
+  ...(databaseHostFallbacks.length > 0 ? { databaseHostFallbacks } : {}),
   ...(updateSettings ? { updateSettings } : {}),
   generatedAt: new Date().toISOString(),
   source: 'package-script',
@@ -134,6 +199,9 @@ console.log(
     databaseUrl
       ? 'Bundled database config prepared for packaging.'
       : 'No DATABASE_URL was found for the bundled config.',
+    databaseHostFallbacks.length > 0
+      ? `Bundled ${databaseHostFallbacks.length} database IP fallback(s) for DNS-resilient startup.`
+      : 'No database IP fallback was bundled.',
     updateSettings
       ? updateSettings.provider === 'github'
         ? `Bundled GitHub auto-update config prepared for ${updateSettings.githubOwner}/${updateSettings.githubRepo}.`

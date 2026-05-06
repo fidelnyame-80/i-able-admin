@@ -7,20 +7,75 @@ import { DatabaseSchemaStatus, DatabaseStatus } from './types.js'
 
 let pool: Pool | null = null
 let activeDatabaseUrl: string | null = null
+const DNS_LOOKUP_TIMEOUT_MS = 2_000
+const FALLBACK_DNS_SERVERS = ['1.1.1.1', '8.8.8.8', '9.9.9.9']
 
-async function resolveIpv4Host(hostname: string) {
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  let timeout: ReturnType<typeof setTimeout> | null = null
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(
+      () => reject(new Error('DNS lookup timed out')),
+      timeoutMs,
+    )
+  })
+
   try {
-    const result = await dns.lookup(hostname, { family: 4 })
-    return result.address
-  } catch {
-    return hostname
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
   }
 }
 
-async function createPool(databaseUrl: string) {
+function getUniqueValues(values: string[]) {
+  return [...new Set(values.filter(Boolean))]
+}
+
+function isIpv4Address(value: string) {
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/u.test(value)
+}
+
+async function resolveIpv4Hosts(hostname: string) {
+  const resolvedAddresses: string[] = []
+  const lookupAttempts = [
+    async () => {
+      const results = await dns.lookup(hostname, { family: 4, all: true })
+      return results.map((result) => result.address)
+    },
+    ...FALLBACK_DNS_SERVERS.map((server) => async () => {
+      const resolver = new dns.Resolver()
+      resolver.setServers([server])
+      return resolver.resolve4(hostname)
+    }),
+  ]
+
+  for (const lookup of lookupAttempts) {
+    try {
+      const addresses = await withTimeout(lookup(), DNS_LOOKUP_TIMEOUT_MS)
+      resolvedAddresses.push(...addresses)
+    } catch {
+      // Try the next resolver. Some Windows installs have broken local DNS.
+    }
+  }
+
+  return getUniqueValues(resolvedAddresses)
+}
+
+async function getHostCandidates(
+  hostname: string,
+  databaseHostFallbacks: string[] = [],
+) {
+  const resolvedHosts = await resolveIpv4Hosts(hostname)
+  const bundledFallbackHosts = databaseHostFallbacks
+    .map((host) => host.trim())
+    .filter(isIpv4Address)
+
+  return getUniqueValues([...resolvedHosts, ...bundledFallbackHosts])
+}
+
+function createPool(databaseUrl: string, host: string, sslServername: string) {
   const parsedUrl = new URL(databaseUrl)
-  const hostname = parsedUrl.hostname
-  const host = await resolveIpv4Host(hostname)
   const database = decodeURIComponent(parsedUrl.pathname.replace(/^\//, ''))
   const sslMode = parsedUrl.searchParams.get('sslmode')
   const useSsl = sslMode !== 'disable'
@@ -41,13 +96,43 @@ async function createPool(databaseUrl: string) {
   if (useSsl) {
     poolConfig.ssl = {
       rejectUnauthorized: false, // For Neon Postgres compatibility
-      servername: hostname,
+      servername: sslServername,
     }
   }
 
   return new Pool({
     ...poolConfig,
   })
+}
+
+async function createConnectedPool(
+  databaseUrl: string,
+  databaseHostFallbacks: string[] = [],
+) {
+  const { hostname } = new URL(databaseUrl)
+  const hostCandidates = await getHostCandidates(hostname, databaseHostFallbacks)
+  let lastError: unknown = null
+
+  if (hostCandidates.length === 0) {
+    throw new Error(
+      `Unable to resolve database hostname "${hostname}". This installer did not include any usable IP fallback for the database host.`,
+    )
+  }
+
+  for (const host of hostCandidates) {
+    const nextPool = createPool(databaseUrl, host, hostname)
+    try {
+      await nextPool.query('SELECT 1')
+      return nextPool
+    } catch (error) {
+      lastError = error
+      await nextPool.end()
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Unable to connect to the database')
 }
 
 function getEmptySchemaStatus(): DatabaseSchemaStatus {
@@ -147,8 +232,11 @@ async function inspectDatabaseSchema(db: Pool): Promise<DatabaseSchemaStatus> {
   return result.rows[0] as DatabaseSchemaStatus
 }
 
-export async function testDatabaseConnection(databaseUrl: string) {
-  const testPool = await createPool(databaseUrl)
+export async function testDatabaseConnection(
+  databaseUrl: string,
+  databaseHostFallbacks: string[] = [],
+) {
+  const testPool = await createConnectedPool(databaseUrl, databaseHostFallbacks)
 
   try {
     await testPool.query('SELECT 1')
@@ -157,9 +245,14 @@ export async function testDatabaseConnection(databaseUrl: string) {
   }
 }
 
-export async function initializeDatabase(databaseUrl?: string) {
-  const resolvedDatabaseUrl = databaseUrl?.trim()
-    || resolveDatabaseConfig().databaseUrl
+export async function initializeDatabase(
+  databaseUrl?: string,
+  databaseHostFallbacks?: string[],
+) {
+  const resolvedConfig = resolveDatabaseConfig()
+  const resolvedDatabaseUrl = databaseUrl?.trim() || resolvedConfig.databaseUrl
+  const resolvedDatabaseHostFallbacks = databaseHostFallbacks
+    ?? (databaseUrl ? [] : resolvedConfig.databaseHostFallbacks)
 
   if (!resolvedDatabaseUrl) {
     throw new Error('Database is not configured')
@@ -178,8 +271,10 @@ export async function initializeDatabase(databaseUrl?: string) {
     await closeDatabase()
   }
 
-  const nextPool = await createPool(resolvedDatabaseUrl)
-  await nextPool.query('SELECT 1')
+  const nextPool = await createConnectedPool(
+    resolvedDatabaseUrl,
+    resolvedDatabaseHostFallbacks,
+  )
 
   pool = nextPool
   activeDatabaseUrl = resolvedDatabaseUrl
@@ -204,7 +299,10 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
   }
 
   try {
-    const db = await initializeDatabase(resolvedConfig.databaseUrl)
+    const db = await initializeDatabase(
+      resolvedConfig.databaseUrl,
+      resolvedConfig.databaseHostFallbacks,
+    )
     const schema = await inspectDatabaseSchema(db)
     const isReady =
       schema.adminUsersTable
@@ -239,15 +337,20 @@ export async function getDatabaseStatus(): Promise<DatabaseStatus> {
   }
 }
 
-export async function ensureDatabaseSetup(databaseUrl?: string) {
-  const resolvedDatabaseUrl = databaseUrl?.trim()
-    || resolveDatabaseConfig().databaseUrl
+export async function ensureDatabaseSetup(
+  databaseUrl?: string,
+  databaseHostFallbacks?: string[],
+) {
+  const resolvedConfig = resolveDatabaseConfig()
+  const resolvedDatabaseUrl = databaseUrl?.trim() || resolvedConfig.databaseUrl
+  const resolvedDatabaseHostFallbacks = databaseHostFallbacks
+    ?? (databaseUrl ? [] : resolvedConfig.databaseHostFallbacks)
 
   if (!resolvedDatabaseUrl) {
     return
   }
 
-  await initializeDatabase(resolvedDatabaseUrl)
+  await initializeDatabase(resolvedDatabaseUrl, resolvedDatabaseHostFallbacks)
   await runDatabaseSetup()
 }
 
