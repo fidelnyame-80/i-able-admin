@@ -1,21 +1,52 @@
 import fs from 'fs'
 import path from 'path'
-import { Pool } from 'pg'
+import dns from 'dns/promises'
+import { Pool, PoolConfig } from 'pg'
 import { resolveDatabaseConfig } from './app-config.js'
 import { DatabaseSchemaStatus, DatabaseStatus } from './types.js'
 
 let pool: Pool | null = null
 let activeDatabaseUrl: string | null = null
 
-function createPool(databaseUrl: string) {
-  return new Pool({
-    connectionString: databaseUrl,
+async function resolveIpv4Host(hostname: string) {
+  try {
+    const result = await dns.lookup(hostname, { family: 4 })
+    return result.address
+  } catch {
+    return hostname
+  }
+}
+
+async function createPool(databaseUrl: string) {
+  const parsedUrl = new URL(databaseUrl)
+  const hostname = parsedUrl.hostname
+  const host = await resolveIpv4Host(hostname)
+  const database = decodeURIComponent(parsedUrl.pathname.replace(/^\//, ''))
+  const sslMode = parsedUrl.searchParams.get('sslmode')
+  const useSsl = sslMode !== 'disable'
+  const poolConfig: PoolConfig = {
+    user: decodeURIComponent(parsedUrl.username),
+    password: decodeURIComponent(parsedUrl.password),
+    database,
+    host,
+    port: parsedUrl.port ? Number(parsedUrl.port) : 5432,
+    application_name: 'i-able-admin',
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
     connectionTimeoutMillis: 30_000,
     idleTimeoutMillis: 30_000,
     query_timeout: 30_000,
-    ssl: {
+  }
+
+  if (useSsl) {
+    poolConfig.ssl = {
       rejectUnauthorized: false, // For Neon Postgres compatibility
-    },
+      servername: hostname,
+    }
+  }
+
+  return new Pool({
+    ...poolConfig,
   })
 }
 
@@ -117,7 +148,7 @@ async function inspectDatabaseSchema(db: Pool): Promise<DatabaseSchemaStatus> {
 }
 
 export async function testDatabaseConnection(databaseUrl: string) {
-  const testPool = createPool(databaseUrl)
+  const testPool = await createPool(databaseUrl)
 
   try {
     await testPool.query('SELECT 1')
@@ -147,7 +178,7 @@ export async function initializeDatabase(databaseUrl?: string) {
     await closeDatabase()
   }
 
-  const nextPool = createPool(resolvedDatabaseUrl)
+  const nextPool = await createPool(resolvedDatabaseUrl)
   await nextPool.query('SELECT 1')
 
   pool = nextPool
