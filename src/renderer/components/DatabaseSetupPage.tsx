@@ -268,8 +268,8 @@ export function DatabaseSetupPage({
                   }`}
                 >
                   If this screen stays here, check the PC internet connection,
-                  VPN/proxy settings, firewall rules, and whether outbound
-                  PostgreSQL traffic on port 5432 is allowed.
+                  VPN/proxy settings, firewall rules, and whether security
+                  software is blocking i-Able Admin from reaching Neon.
                 </p>
               </div>
             </div>
